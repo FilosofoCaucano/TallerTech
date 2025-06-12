@@ -45,4 +45,21 @@
   button:hover {
     background-color: #d32f2f;
   }
+
+  /* Estilos/FormularioRegistro.css */
+
+.formulario-registro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cerrar-formulario {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #c00;
+}
+
   

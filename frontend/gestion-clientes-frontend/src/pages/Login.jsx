@@ -26,6 +26,7 @@ const Login = () => {
     return newPassword === confirmPassword;
   };
 
+  // Función para manejar el inicio de sesión
   const handleSubmitLogin = async (e) => {
     e.preventDefault();
 
@@ -48,13 +49,15 @@ const Login = () => {
     const data = await response.json();
     
     if (response.ok) {
-      localStorage.setItem("token", data.access_token);
+      // Guarda el token en localStorage después del login exitoso
+      localStorage.setItem("token", data.access_token); 
       navigate("/clientes");
     } else {
       setError("❌ Usuario o contraseña incorrectos");
     }
   };
 
+  // Función para manejar el registro de usuario
   const handleSubmitRegister = async (e) => {
     e.preventDefault();
 

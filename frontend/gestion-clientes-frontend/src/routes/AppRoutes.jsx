@@ -15,6 +15,7 @@ import PerfilTaller from "../pages/PerfilTaller";
 import Facturacion from "../pages/Facturacion"; 
 import AgendarCita from "../pages/AgendarCita"; 
 import RegistroVehiculo from "../pages/RegistroVehiculo"; 
+import ProtectedRoute from "../components/ProtectedRoute";
 
 const AppRoutes = () => {
   return (
@@ -41,5 +42,14 @@ const AppRoutes = () => {
     </Router>
   );
 };
+
+<Route
+  path="/agendar-cita"
+  element={
+    <ProtectedRoute>
+      <AgendarCita />
+    </ProtectedRoute>
+  }
+/>
 
 export default AppRoutes;

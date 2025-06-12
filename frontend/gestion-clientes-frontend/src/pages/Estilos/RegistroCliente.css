@@ -1,60 +1,67 @@
 /* 🌟 Contenedor Principal */
-.registro-container {
-  max-width: 400px;
-  width: 90%;
-  margin: 0 auto; /* Centrado horizontal */
-  background-color: #fff8e1;
+.registro-cliente-container {
+  max-width: 500px;
+  margin: 40px auto;
   padding: 30px;
+  background-color: #fff8e1; /* Fondo crema */
   border-radius: 15px;
-  box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.1);
-  position: relative;
-}
-
-/* 📌 Centrado vertical y horizontal */
-body {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  margin: 0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
   font-family: "Arial", sans-serif;
-  background-color: #f4f4f9;
 }
 
 /* 🎨 Título */
-h2 {
+.registro-cliente-container h2 {
   text-align: center;
   color: #8b0000;
-  font-size: 24px;
+  font-size: 26px;
   margin-bottom: 20px;
 }
 
-/* 🖋 Formulario */
+/* 🖍️ Etiquetas */
+label {
+  font-weight: bold;
+  color: #4a2e00;
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* 📋 Formulario */
 form {
   display: flex;
   flex-direction: column;
 }
 
-/* 🖊 Inputs y Selects */
-input,
-select {
+/* 📝 Inputs */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="date"] {
   padding: 12px;
-  margin: 10px 0;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  margin: 10px 0 20px 0;
+  border: 1px solid #ccc;
+  border-radius: 10px;
   font-size: 16px;
-  transition: border-color 0.3s ease;
+  transition: box-shadow 0.3s ease;
 }
 
-input:focus,
-select:focus {
-  border-color: #8b0000;
+input:focus {
   outline: none;
-  box-shadow: 0 0 5px rgba(139, 0, 0, 0.3);
+  box-shadow: 0 0 6px rgba(139, 0, 0, 0.4);
+  border-color: #8b0000;
 }
 
-/* 🛠 Botones */
-button {
+/* 🛑 Mensaje de Error */
+.error-msg {
+  color: #d8000c;
+  background-color: #ffd2d2;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* 🔘 Botón */
+button[type="submit"] {
   background-color: #8b0000;
   color: white;
   padding: 12px;
@@ -62,38 +69,26 @@ button {
   border-radius: 8px;
   cursor: pointer;
   font-size: 16px;
-  margin-top: 15px;
   transition: background-color 0.3s ease;
 }
 
-button:hover {
+button[type="submit"]:hover {
   background-color: #ffcc00;
   color: #1c1c1c;
 }
 
-/* 🔘 Botón Siguiente */
-.btn-siguiente {
-  background-color: #2196f3;
-  margin-top: 10px;
-}
-
-.btn-siguiente:hover {
-  background-color: #1e88e5;
-}
-
-/* 🔻 Responsive Design */
+/* 📱 Responsive */
 @media (max-width: 600px) {
-  .registro-container {
+  .registro-cliente-container {
     width: 95%;
     padding: 20px;
   }
 
-  h2 {
-    font-size: 20px;
+  .registro-cliente-container h2 {
+    font-size: 22px;
   }
 
-  input,
-  select {
+  input {
     font-size: 14px;
   }
 }

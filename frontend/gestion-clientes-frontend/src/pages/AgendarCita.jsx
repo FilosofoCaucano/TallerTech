@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import emailjs from "@emailjs/browser";
 import "./Estilos/AgendarCita.css";
+import { authFetch } from "../services/authFetch";
+import { v4 as uuidv4 } from "uuid";
 
 const AgendarCita = () => {
-  // Estados para selección de cliente y vehículo
   const [clientes, setClientes] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState("");
   const [vehiculosCliente, setVehiculosCliente] = useState([]);
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState("");
 
-  // Estado para la cita
   const [cita, setCita] = useState({
     fecha: "",
     hora: "",
@@ -18,10 +18,8 @@ const AgendarCita = () => {
     telefono: "",
   });
 
-  // Estado para las citas agendadas
   const [citas, setCitas] = useState([]);
 
-  // Lista de servicios disponibles
   const serviciosDisponibles = [
     "Cambio de Aceite",
     "Alineación y Balanceo",
@@ -30,88 +28,147 @@ const AgendarCita = () => {
     "Cambio de Batería",
   ];
 
-  // Cargar clientes desde LocalStorage al iniciar
   useEffect(() => {
-    const clientesGuardados = JSON.parse(localStorage.getItem("clientes")) || [];
-    setClientes(clientesGuardados);
+    const cargarClientes = async () => {
+      try {
+        const res = await authFetch("http://localhost:8000/clientes");
+        const data = await res.json();
+        setClientes(data);
+      } catch (error) {
+        console.error("❌ Error al cargar clientes:", error);
+      }
+    };
+
+    cargarClientes();
   }, []);
 
-  // Cargar citas desde LocalStorage al iniciar
   useEffect(() => {
-    const citasGuardadas = JSON.parse(localStorage.getItem("citasTaller")) || [];
-    setCitas(citasGuardadas);
+    const cargarCitas = async () => {
+      try {
+        const res = await authFetch("http://localhost:8000/citas");
+        const data = await res.json();
+        setCitas(data);
+      } catch (error) {
+        console.error("❌ Error al cargar citas:", error);
+      }
+    };
+
+    cargarCitas();
   }, []);
 
-  // Cargar vehículos del cliente seleccionado
+  // 🔁 Nuevo useEffect: carga vehículos del cliente desde backend
   useEffect(() => {
-    if (clienteSeleccionado) {
-      const cliente = clientes.find((c) => c.id === clienteSeleccionado);
-      setVehiculosCliente(cliente?.vehiculos || []);
-    } else {
-      setVehiculosCliente([]);
-    }
-  }, [clienteSeleccionado, clientes]);
+    const cargarVehiculos = async () => {
+      if (!clienteSeleccionado) {
+        setVehiculosCliente([]);
+        return;
+      }
 
-  // Función para obtener el nombre del cliente por ID
+      try {
+        const res = await authFetch(`http://localhost:8000/vehiculos/por-cliente/${clienteSeleccionado}`);
+        const data = await res.json();
+        setVehiculosCliente(data);
+      } catch (error) {
+        console.error("❌ Error al cargar vehículos del cliente:", error);
+      }
+    };
+
+    cargarVehiculos();
+  }, [clienteSeleccionado]);
+
   const obtenerNombreCliente = (id) => {
     const cliente = clientes.find((c) => c.id === id);
     return cliente ? cliente.nombre : "Desconocido";
   };
 
-  // Manejar cambios en los inputs
   const handleChange = (e) => {
     setCita({ ...cita, [e.target.name]: e.target.value });
   };
 
-  // Enviar email con EmailJS
-  const enviarRecordatorio = (cita) => {
-    const templateParams = {
-      name: obtenerNombreCliente(cita.cliente),
-      vehiculo: cita.vehiculo,
-      fecha: cita.fecha,
-      hora: cita.hora,
-      servicio: cita.servicio,
-      email: cita.email,
-    };
-
-    emailjs
-      .send("service_vcu3hss", "template_12smrqi", templateParams, "jc2KHEe6_bqatSo0Q")
-      .then((response) => {
-        console.log("✅ Email enviado con éxito:", response);
-      })
-      .catch((error) => {
-        console.error("❌ Error al enviar email:", error);
-      });
+  const enviarRecordatorio = ({ cliente, vehiculo, fecha, hora, servicio, email }) => {
+  const templateParams = {
+    name: obtenerNombreCliente(cliente),
+    vehiculo: vehiculo,
+    fecha: fecha,
+    hora: hora,
+    servicio: servicio,
+    email: email, // necesario para que emailjs lo use en tu plantilla
   };
 
-  // Guardar cita en LocalStorage
-  const agendarCita = (e) => {
+  emailjs
+    .send("service_vcu3hss", "template_12smrqi", templateParams, "jc2KHEe6_bqatSo0Q")
+    .then((response) => {
+      console.log("✅ Email enviado con éxito:", response);
+    })
+    .catch((error) => {
+      console.error("❌ Error al enviar email:", error);
+    });
+};
+
+
+  const agendarCita = async (e) => {
     e.preventDefault();
-    if (!clienteSeleccionado || !vehiculoSeleccionado || !cita.fecha || !cita.hora || !cita.servicio || !cita.email || !cita.telefono) {
+
+    if (
+      !clienteSeleccionado ||
+      !vehiculoSeleccionado ||
+      !cita.fecha ||
+      !cita.hora ||
+      !cita.servicio ||
+      !cita.email ||
+      !cita.telefono
+    ) {
       alert("❌ Debes completar todos los campos.");
       return;
     }
 
-    const nuevaCita = { cliente: clienteSeleccionado, vehiculo: vehiculoSeleccionado, ...cita };
-    const nuevasCitas = [...citas, nuevaCita];
-    setCitas(nuevasCitas);
-    localStorage.setItem("citasTaller", JSON.stringify(nuevasCitas));
+    const idGenerado = uuidv4();
 
-    enviarRecordatorio(nuevaCita);
+    const citaBackend = {
+      id_cita: idGenerado,
+      id_cliente: clienteSeleccionado,
+      placa: vehiculoSeleccionado,
+      fecha: cita.fecha,
+      hora: cita.hora,
+      id_servicio: cita.servicio,
+    };
 
-    alert("✅ Cita agendada correctamente. Se ha enviado un recordatorio por correo.");
-    setCita({ fecha: "", hora: "", servicio: "", email: "", telefono: "" });
-    setVehiculoSeleccionado(""); // Reiniciar selección
+    try {
+      const res = await authFetch("http://localhost:8000/citas", {
+        method: "POST",
+        body: JSON.stringify(citaBackend),
+      });
+
+      if (res.ok) {
+        enviarRecordatorio({
+          ...cita,
+          cliente: clienteSeleccionado,
+          vehiculo: vehiculoSeleccionado,
+        });
+
+        alert("✅ Cita agendada correctamente. Se ha enviado un recordatorio por correo.");
+
+        setCita({ fecha: "", hora: "", servicio: "", email: "", telefono: "" });
+        setVehiculoSeleccionado("");
+
+        const nuevaLista = await (await authFetch("http://localhost:8000/citas")).json();
+        setCitas(nuevaLista);
+      } else {
+        const data = await res.json();
+        alert(`❌ Error: ${data.detail}`);
+      }
+    } catch (error) {
+      console.error("❌ Error de red/agendamiento:", error);
+      alert("❌ No se pudo conectar con el servidor.");
+    }
   };
 
-  // Filtrar citas del día actual
   const citasDelDia = citas.filter((c) => c.fecha === new Date().toISOString().split("T")[0]);
 
   return (
     <div className="citas-container">
       <h2>📅 Agendamiento de Citas</h2>
 
-      {/* Selección de Cliente */}
       <label>👤 Seleccionar Cliente:</label>
       <select value={clienteSeleccionado} onChange={(e) => setClienteSeleccionado(e.target.value)}>
         <option value="">Seleccione un cliente</option>
@@ -122,7 +179,6 @@ const AgendarCita = () => {
         ))}
       </select>
 
-      {/* Selección de Vehículo */}
       <label>🚗 Seleccionar Vehículo:</label>
       <select
         value={vehiculoSeleccionado}
@@ -146,7 +202,6 @@ const AgendarCita = () => {
         <button onClick={() => alert("Por favor, agregue un vehículo al cliente.")}>Agregar Vehículo</button>
       )}
 
-      {/* Formulario de Agendamiento */}
       <form onSubmit={agendarCita}>
         <label>📅 Fecha:</label>
         <input type="date" name="fecha" value={cita.fecha} onChange={handleChange} required />
@@ -189,27 +244,27 @@ const AgendarCita = () => {
         <button type="submit">📌 Agendar Cita</button>
       </form>
 
-      {/* Mostrar Citas Agendadas */}
       <h3>📋 Citas Agendadas</h3>
       <ul>
         {citas.sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).map((cita, index) => (
           <li key={index}>
-            <strong>Cliente:</strong> {obtenerNombreCliente(cita.cliente)} <br />
-            <strong>Vehículo:</strong> {cita.vehiculo} <br />
+            <strong>Cliente:</strong> {obtenerNombreCliente(cita.id_cliente)} <br />
+<strong>Vehículo:</strong> {cita.placa} <br />
+
             🗓 {cita.fecha} ⏰ {cita.hora} - {cita.servicio} <br />
             📩 {cita.email} | 📞 {cita.telefono}
           </li>
         ))}
       </ul>
 
-      {/* Citas del Día Actual */}
       <h3>📅 Citas de Hoy</h3>
       <ul>
         {citasDelDia.length > 0 ? (
           citasDelDia.map((cita, index) => (
             <li key={index}>
-              <strong>Cliente:</strong> {obtenerNombreCliente(cita.cliente)} <br />
-              <strong>Vehículo:</strong> {cita.vehiculo} <br />
+              <strong>Cliente:</strong> {obtenerNombreCliente(cita.id_cliente)} <br />
+<strong>Vehículo:</strong> {cita.placa} <br />
+
               🕒 {cita.hora} - {cita.servicio}
             </li>
           ))

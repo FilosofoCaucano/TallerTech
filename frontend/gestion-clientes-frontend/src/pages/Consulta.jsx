@@ -1,120 +1,213 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import "chart.js/auto";
 import "./Estilos/Consulta.css";
-import Modal from "./Reutilizables/Modal";
-import FormularioRegistro from "./FormularioRegistro";
+import { authFetch } from "../services/authFetch";
 
 const Consulta = () => {
-  // Datos de consumos (Simulados)
-  const [consumos, setConsumos] = useState([
-    { id: "001", cliente: "Juan Pérez", placa: "ABC123", servicio: "Cambio de Aceite", precio: 30, fecha: "2023-10-10", estado: "Completado" },
-    { id: "002", cliente: "María García", placa: "XYZ789", servicio: "Alineación y Balanceo", precio: 50, fecha: "2023-10-15", estado: "Pendiente" },
-    { id: "003", cliente: "Carlos López", placa: "LMN456", servicio: "Cambio de Filtros", precio: 40, fecha: "2023-09-28", estado: "Cancelado" },
-    { id: "004", cliente: "Juan Pérez", placa: "ABC123", servicio: "Revisión General", precio: 80, fecha: "2023-10-20", estado: "Completado" },
-  ]);
+  const [clientes, setClientes] = useState([]);
+  const [vehiculos, setVehiculos] = useState([]);
+  const [servicios, setServicios] = useState([]);
+  const [registro, setRegistro] = useState([]);
 
-  // Estado para la búsqueda y filtros
+  const [nuevoRegistro, setNuevoRegistro] = useState({
+    id_cliente: "",
+    placa: "",
+    id_servicio: "",
+    fecha: "",
+    estado: "Activo",
+  });
+
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState("cliente");
   const [estadoFiltro, setEstadoFiltro] = useState("Todos");
 
-  // Estado para el modal de edición
-  const [modalVisible, setModalVisible] = useState(false);
-  const [consumoEditando, setConsumoEditando] = useState(null);
+  // Cargar clientes desde backend
+  useEffect(() => {
+    const fetchClientes = async () => {
+      try {
+        const res = await authFetch("http://localhost:8000/clientes");
+        if (!res.ok) throw new Error("Error al cargar clientes");
+        const data = await res.json();
+        setClientes(data);
+      } catch (error) {
+        console.error("❌ Error al obtener clientes:", error);
+      }
+    };
 
-  // Estado para el modal de registro de nuevo servicio
-  const [mostrarModalRegistro, setMostrarModalRegistro] = useState(false);
+    fetchClientes();
+  }, []);
 
-  // Filtrar consumos según búsqueda y estado
-  const consumosFiltrados = consumos.filter((c) =>
-    c[filtro].toLowerCase().includes(busqueda.toLowerCase()) &&
-    (estadoFiltro === "Todos" || c.estado === estadoFiltro)
-  );
+  // Cargar vehículos cuando se selecciona un cliente
+  useEffect(() => {
+    const fetchVehiculos = async () => {
+      const id_cliente = nuevoRegistro.id_cliente;
+      if (!id_cliente) return;
 
-  // Función para ver detalles de un consumo
-  const handleVer = (consumo) => {
-    alert(`Detalles del consumo:
-Cliente: ${consumo.cliente}
-Placa: ${consumo.placa}
-Servicio: ${consumo.servicio}
-Fecha: ${consumo.fecha}
-Estado: ${consumo.estado}
-Precio: $${consumo.precio}`);
+      try {
+        const res = await authFetch(`http://localhost:8000/vehiculos/por-cliente/${id_cliente}`);
+        if (!res.ok) throw new Error("Error al cargar vehículos");
+        const data = await res.json();
+        setVehiculos(data);
+      } catch (error) {
+        console.error("❌ Error al obtener vehículos:", error);
+        setVehiculos([]);
+      }
+    };
+
+    fetchVehiculos();
+  }, [nuevoRegistro.id_cliente]);
+
+  // Cargar servicios
+  useEffect(() => {
+    const fetchServicios = async () => {
+      try {
+        const res = await authFetch("http://localhost:8000/servicios");
+        if (!res.ok) throw new Error("Error al cargar servicios");
+        const data = await res.json();
+        setServicios(data);
+      } catch (error) {
+        console.error("❌ Error al obtener servicios:", error);
+      }
+    };
+
+    fetchServicios();
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setNuevoRegistro((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Función para abrir el modal de edición
-  const handleEditar = (id) => {
-    const consumoSeleccionado = consumos.find((c) => c.id === id);
-    setConsumoEditando(consumoSeleccionado);
-    setModalVisible(true);
+  const agregarRegistro = () => {
+    const { id_cliente, placa, id_servicio, fecha } = nuevoRegistro;
+
+    if (!id_cliente || !placa || !id_servicio || !fecha) {
+      alert("Por favor completa todos los campos.");
+      return;
+    }
+
+    const cliente = clientes.find(c => c.id === id_cliente);
+    const vehiculo = vehiculos.find(v => v.placa === placa);
+    const servicio = servicios.find(s => s.id_servicio === id_servicio);
+
+    if (!cliente || !vehiculo || !servicio) return;
+
+    const nuevo = {
+      id_cliente,
+      cliente_nombre: cliente.nombre,
+      placa: vehiculo.placa,
+      marca_modelo: `${vehiculo.marca} ${vehiculo.modelo}`,
+      nombre_servicio: servicio.nombre,
+      costo: parseFloat(servicio.precio),
+      fecha,
+      estado: nuevoRegistro.estado,
+    };
+
+    setRegistro((prev) => [...prev, nuevo]);
+
+    setNuevoRegistro((prev) => ({
+      ...prev,
+      placa: "",
+      id_servicio: "",
+      fecha: "",
+    }));
   };
 
-  // Función para eliminar un consumo
-  const handleEliminar = (id) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar este consumo?")) {
-      setConsumos(consumos.filter((c) => c.id !== id));
+  const handleEliminar = (index) => {
+    if (window.confirm("¿Deseas eliminar este registro?")) {
+      setRegistro((prev) => prev.filter((_, i) => i !== index));
     }
   };
 
-  // Función para guardar los cambios del consumo editado
-  const handleGuardarCambios = () => {
-    setConsumos((prevConsumos) =>
-      prevConsumos.map((c) =>
-        c.id === consumoEditando.id ? consumoEditando : c
+  const toggleEstado = (index) => {
+    setRegistro((prev) =>
+      prev.map((r, i) =>
+        i === index
+          ? { ...r, estado: r.estado === "Activo" ? "Inactivo" : "Activo" }
+          : r
       )
     );
-    setModalVisible(false); // Cerrar el modal después de guardar
   };
 
-  // Función para agregar un nuevo servicio
-  const agregarServicio = (nuevoServicio) => {
-    const nuevoId = String(consumos.length + 1).padStart(3, "0"); // Generar ID único
-    const nuevoConsumo = {
-      id: nuevoId,
-      cliente: nuevoServicio.clienteId,
-      placa: nuevoServicio.placaVehiculo,
-      servicio: nuevoServicio.servicio,
-      precio: nuevoServicio.costo,
-      fecha: nuevoServicio.fecha,
-      estado: "Pendiente", // Por defecto, el estado es "Pendiente"
-    };
-    setConsumos([...consumos, nuevoConsumo]);
-    setMostrarModalRegistro(false); // Cerrar el modal después de agregar
-  };
+  const registrosFiltrados = registro.filter((r) => {
+    const campo = r[filtro];
+    const valorCampo = typeof campo === "string" ? campo : String(campo || "");
+    return (
+      valorCampo.toLowerCase().includes(busqueda.toLowerCase()) &&
+      (estadoFiltro === "Todos" || r.estado === estadoFiltro)
+    );
+  });
 
-  // Calcular total de gastos por cliente
   const calcularTotal = () => {
-    let totalPorCliente = {};
-    consumos.forEach((c) => {
-      totalPorCliente[c.cliente] = (totalPorCliente[c.cliente] || 0) + c.precio;
+    let total = {};
+    registrosFiltrados.forEach((r) => {
+      total[r.cliente_nombre] = (total[r.cliente_nombre] || 0) + r.costo;
     });
-    return totalPorCliente;
+    return total;
   };
 
-  // Datos para la gráfica de gastos por cliente
   const dataGastos = {
     labels: Object.keys(calcularTotal()),
     datasets: [
       {
         label: "Total Gastado ($)",
         data: Object.values(calcularTotal()),
-        backgroundColor: ["#8b0000", "#f39c12", "#3498db"],
+        backgroundColor: "#3498db",
       },
     ],
   };
 
   return (
     <div className="consulta-container">
-      <h2>📊 Consulta de Consumos</h2>
-      <p>Revisa el historial de consumos y servicios realizados en el taller.</p>
+      <h2>🔧 Registro de Consumos por Cliente y Vehículo</h2>
 
-      {/* Botón para añadir un nuevo servicio */}
-      <button className="btn-agregar" onClick={() => setMostrarModalRegistro(true)}>
-        ➕ Añadir Servicio
-      </button>
+      {/* Formulario */}
+      <form onSubmit={(e) => { e.preventDefault(); agregarRegistro(); }} className="form-agregar-consumo">
+        <select name="id_cliente" value={nuevoRegistro.id_cliente} onChange={handleChange}>
+          <option value="">Selecciona un cliente</option>
+          {clientes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
+          ))}
+        </select>
 
-      {/* Barra de búsqueda y filtros */}
+        <select name="placa" value={nuevoRegistro.placa} onChange={handleChange} disabled={!nuevoRegistro.id_cliente}>
+          <option value="">Selecciona un vehículo</option>
+          {vehiculos.map((v) => (
+            <option key={v.placa} value={v.placa}>
+              {v.marca} {v.modelo} - Placa: {v.placa}
+            </option>
+          ))}
+        </select>
+
+        <select name="id_servicio" value={nuevoRegistro.id_servicio} onChange={handleChange}>
+          <option value="">Selecciona un servicio</option>
+          {servicios.map((s) => (
+            <option key={s.id_servicio} value={s.id_servicio}>
+              {s.nombre} - ${parseFloat(s.precio).toFixed(2)}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          name="fecha"
+          value={nuevoRegistro.fecha}
+          onChange={handleChange}
+          required
+        />
+
+        <select name="estado" value={nuevoRegistro.estado} onChange={handleChange}>
+          <option value="Activo">Activo</option>
+          <option value="Inactivo">Inactivo</option>
+        </select>
+
+        <button type="submit">Agregar</button>
+      </form>
+
+      {/* Filtros */}
       <div className="busqueda-container">
         <input
           type="text"
@@ -123,14 +216,14 @@ Precio: $${consumo.precio}`);
           onChange={(e) => setBusqueda(e.target.value)}
         />
         <select onChange={(e) => setFiltro(e.target.value)}>
-          <option value="cliente">Cliente</option>
+          <option value="cliente_nombre">Cliente</option>
           <option value="placa">Placa</option>
+          <option value="nombre_servicio">Servicio</option>
         </select>
         <select onChange={(e) => setEstadoFiltro(e.target.value)}>
           <option value="Todos">Todos</option>
-          <option value="Completado">Completado</option>
-          <option value="Pendiente">Pendiente</option>
-          <option value="Cancelado">Cancelado</option>
+          <option value="Activo">Activo</option>
+          <option value="Inactivo">Inactivo</option>
         </select>
       </div>
 
@@ -138,147 +231,40 @@ Precio: $${consumo.precio}`);
       <table className="consulta-tabla">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Cliente</th>
-            <th>Placa</th>
+            <th>Vehículo</th>
             <th>Servicio</th>
             <th>Fecha</th>
             <th>Estado</th>
-            <th>Precio ($)</th>
+            <th>Costo</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
-          {consumosFiltrados.length > 0 ? (
-            consumosFiltrados.map((c) => (
-              <tr key={c.id}>
-                <td>{c.id}</td>
-                <td>{c.cliente}</td>
-                <td>{c.placa}</td>
-                <td>{c.servicio}</td>
-                <td>{c.fecha}</td>
-                <td className={`estado ${c.estado.toLowerCase()}`}>{c.estado}</td>
-                <td>${c.precio}</td>
+          {registrosFiltrados.length > 0 ? (
+            registrosFiltrados.map((r, index) => (
+              <tr key={index}>
+                <td>{r.cliente_nombre}</td>
+                <td>{r.marca_modelo}</td>
+                <td>{r.nombre_servicio}</td>
+                <td>{r.fecha}</td>
+                <td>{r.estado}</td>
+                <td>${r.costo.toFixed(2)}</td>
                 <td>
-                  <button className="btn-ver" onClick={() => handleVer(c)}>👁 Ver</button>
-                  <button className="btn-editar" onClick={() => handleEditar(c.id)}>✏ Editar</button>
-                  <button className="btn-eliminar" onClick={() => handleEliminar(c.id)}>🗑 Eliminar</button>
+                  <button onClick={() => handleEliminar(index)}>🗑</button>
+                  <button onClick={() => toggleEstado(index)}>🔁</button>
                 </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="8">No se encontraron consumos.</td>
+              <td colSpan="7">No hay registros.</td>
             </tr>
           )}
         </tbody>
       </table>
 
-      {/* Modal de edición */}
-      {modalVisible && consumoEditando && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Editar Consumo</h3>
-            <form>
-              <label>
-                Cliente:
-                <input
-                  type="text"
-                  value={consumoEditando.cliente}
-                  onChange={(e) =>
-                    setConsumoEditando({ ...consumoEditando, cliente: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Placa:
-                <input
-                  type="text"
-                  value={consumoEditando.placa}
-                  onChange={(e) =>
-                    setConsumoEditando({ ...consumoEditando, placa: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Servicio:
-                <input
-                  type="text"
-                  value={consumoEditando.servicio}
-                  onChange={(e) =>
-                    setConsumoEditando({ ...consumoEditando, servicio: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Precio:
-                <input
-                  type="number"
-                  value={consumoEditando.precio}
-                  onChange={(e) =>
-                    setConsumoEditando({ ...consumoEditando, precio: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                Fecha:
-                <input
-                  type="date"
-                  value={consumoEditando.fecha}
-                  onChange={(e) =>
-                    setConsumoEditando({ ...consumoEditando, fecha: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Estado:
-                <select
-                  value={consumoEditando.estado}
-                  onChange={(e) =>
-                    setConsumoEditando({ ...consumoEditando, estado: e.target.value })
-                  }
-                >
-                  <option value="Completado">Completado</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="Cancelado">Cancelado</option>
-                </select>
-              </label>
-              <div className="modal-actions">
-                <button type="button" onClick={() => setModalVisible(false)}>
-                  Cancelar
-                </button>
-                <button type="button" onClick={handleGuardarCambios}>
-                  Guardar Cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para registrar un nuevo servicio */}
-      {mostrarModalRegistro && (
-        <Modal title="Registrar Nuevo Servicio" onClose={() => setMostrarModalRegistro(false)}>
-          <FormularioRegistro
-            tipo="Registrar Servicio"
-            campos={[
-              { name: "clienteId", label: "ID Cliente", type: "select" },
-              { name: "placaVehiculo", label: "Placa Vehículo", type: "select" },
-              { name: "servicio", label: "Servicio", type: "select" },
-              { name: "costo", label: "Costo ($)", type: "number", placeholder: "Ingrese el costo" },
-              { name: "fecha", label: "Fecha", type: "date" },
-            ]}
-            opciones={{
-              clienteId: ["C001", "C002", "C003"],
-              placaVehiculo: ["ABC123", "XYZ456", "DEF789"],
-              servicio: ["Cambio de Aceite", "Alineación", "Revisión de Frenos"],
-            }}
-            onSubmit={agregarServicio}
-          />
-        </Modal>
-      )}
-
-      {/* Gráfico de gastos por cliente */}
+      {/* Gráfico */}
       <h3>📈 Gastos por Cliente</h3>
       <div className="grafico-container">
         <Bar data={dataGastos} />

@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import { Bar, Pie } from "react-chartjs-2";
 import "chart.js/auto";
 import "./Estilos/Home.css";
+import { authFetch } from "../services/authFetch";
 
 const Home = () => {
-  // 📊 Cargar métricas desde localStorage o establecer valores por defecto
   const [metrics, setMetrics] = useState({
     serviciosPendientes: 0,
     citasHoy: 0,
@@ -13,37 +13,44 @@ const Home = () => {
     serviciosEnProgreso: 0,
   });
 
-  // 📅 Cargar próximas citas
   const [proximasCitas, setProximasCitas] = useState([]);
   const [notas, setNotas] = useState("");
 
   useEffect(() => {
-    // Simulación de carga de datos desde localStorage
-    const citas = JSON.parse(localStorage.getItem("citasTaller")) || [];
-    const ingresos = JSON.parse(localStorage.getItem("facturas")) || [];
-    const diagnosticos = JSON.parse(localStorage.getItem("diagnosticos")) || {};
+    const cargarDatos = async () => {
+      try {
+        const resCitas = await authFetch("http://localhost:8000/citas");
+        const citas = await resCitas.json();
 
-    // Filtrar citas para hoy 📅
-    const hoy = new Date().toISOString().split("T")[0];
-    const citasHoy = citas.filter((cita) => cita.fecha === hoy);
+        const resFacturas = await authFetch("http://localhost:8000/facturas");
+        const facturas = await resFacturas.json();
 
-    setMetrics({
-      serviciosPendientes: citas.length,
-      citasHoy: citasHoy.length,
-      ingresosMes: ingresos.reduce((sum, f) => sum + f.total, 0),
-      serviciosEnProgreso: Object.keys(diagnosticos).length, // Número de diagnósticos sin finalizar
-    });
+        const resDiagnosticos = await authFetch("http://localhost:8000/diagnosticos");
+        const diagnosticos = await resDiagnosticos.json();
 
-    setProximasCitas(citasHoy);
+        const hoy = new Date().toISOString().split("T")[0];
+        const citasHoy = citas.filter((c) => c.fecha === hoy);
 
-    // Cargar notas previas del taller
-    const notasGuardadas = localStorage.getItem("notasTaller");
-    if (notasGuardadas) {
-      setNotas(notasGuardadas);
-    }
+        setMetrics({
+          serviciosPendientes: citas.length,
+          citasHoy: citasHoy.length,
+          ingresosMes: facturas.reduce((acc, f) => acc + f.total, 0),
+          serviciosEnProgreso: diagnosticos.length,
+        });
+
+        setProximasCitas(citasHoy);
+
+        const notasGuardadas = localStorage.getItem("notasTaller");
+        if (notasGuardadas) setNotas(notasGuardadas);
+      } catch (error) {
+        console.error("❌ Error cargando datos:", error);
+      }
+    };
+
+    cargarDatos();
   }, []);
 
-  // 📊 Datos de gráficos
+  // 📊 Datos de gráficos (por ahora estáticos)
   const dataServicios = {
     labels: ["Cambio de Aceite", "Alineación", "Revisión", "Frenos"],
     datasets: [
@@ -66,7 +73,6 @@ const Home = () => {
     ],
   };
 
-  // 📝 Manejar notas del taller y guardarlas en localStorage
   const handleNotasChange = (e) => {
     const nuevaNota = e.target.value;
     setNotas(nuevaNota);
@@ -76,14 +82,12 @@ const Home = () => {
   return (
     <div className="home-container">
       <div className="contenido">
-        {/* 🏠 Encabezado */}
         <div className="header">
           <img src="/TallerTechLogo3.png" alt="Logo TallerTech" className="logo" />
           <h1>Bienvenido a TallerTech</h1>
           <p>📅 {new Date().toLocaleDateString()}</p>
         </div>
 
-        {/* 📌 Estado del Taller */}
         <div className="estado-taller">
           <h3>📊 Estado del Taller</h3>
           <div className="metricas">
@@ -94,7 +98,6 @@ const Home = () => {
           </div>
         </div>
 
-        {/* 📊 Gráficos de Actividad */}
         <div className="graficos">
           <div className="grafico-container">
             <h3>📈 Servicios Realizados</h3>
@@ -106,14 +109,13 @@ const Home = () => {
           </div>
         </div>
 
-        {/* 📅 Próximas Citas */}
         <div className="citas-hoy">
           <h3>📅 Próximas Citas de Hoy</h3>
           {proximasCitas.length > 0 ? (
             <ul>
               {proximasCitas.map((cita, index) => (
                 <li key={index}>
-                  🕒 {cita.hora} - {cita.servicio} (📞 {cita.telefono})
+                  🕒 {cita.hora} - {cita.servicio || "Sin nombre"} (📞 {cita.telefono || "N/A"})
                 </li>
               ))}
             </ul>
@@ -122,7 +124,6 @@ const Home = () => {
           )}
         </div>
 
-        {/* 🚀 Accesos Directos para el Mecánico */}
         <div className="acciones-rapidas">
           <h3>🚀 Accesos Rápidos</h3>
           <div className="acciones-botones">
@@ -133,7 +134,6 @@ const Home = () => {
           </div>
         </div>
 
-        {/* 📝 Notas del Taller */}
         <div className="notas-taller">
           <h3>📝 Notas del Taller</h3>
           <textarea

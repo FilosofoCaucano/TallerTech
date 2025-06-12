@@ -39,8 +39,8 @@ const Registro = () => {
           <Link to="/historial-servicios" className="registro-card">
             <div>
               <i className="fas fa-file-alt"></i>
-              <h3>Historial de Servicios</h3>
-              <p>Consulte el historial de servicios realizados.</p>
+              <h3>Consulta de Vehiculos</h3>
+              <p>Consulte el historial de vehiculos organizados y creados.</p>
             </div>
           </Link>
 

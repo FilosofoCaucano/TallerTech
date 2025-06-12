@@ -42,3 +42,48 @@ th {
   max-width: 600px;
   margin: 20px auto;
 }
+
+/* 🎯 Botones de acción con mismo tamaño */
+td button {
+  min-width: 90px;
+  padding: 6px 10px;
+  margin: 2px;
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: inline-block;
+  text-align: center;
+}
+
+/* 👁 Ver */
+.btn-ver {
+  background-color: #2196f3;
+  color: white;
+}
+
+.btn-ver:hover {
+  background-color: #1976d2;
+}
+
+/* ✏ Editar */
+.btn-editar {
+  background-color: #ffc107;
+  color: #1c1c1c;
+}
+
+.btn-editar:hover {
+  background-color: #ffb300;
+}
+
+/* 🗑 Eliminar */
+.btn-eliminar {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-eliminar:hover {
+  background-color: #d32f2f;
+}

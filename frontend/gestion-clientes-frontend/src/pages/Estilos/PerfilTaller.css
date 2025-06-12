@@ -88,3 +88,10 @@
     }
   }
   
+  .perfil-info p {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.4;
+}

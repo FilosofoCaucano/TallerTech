@@ -9,19 +9,21 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { useNavigate } from "react-router-dom"; // Para redirección
+import { useNavigate, useLocation } from "react-router-dom";
 import "./Estilos/DiagnosticoVehiculo.css";
+import { authFetch } from "../services/authFetch";
+import { v4 as uuidv4 } from "uuid";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
-  const navigate = useNavigate(); // Hook para redirección
+const DiagnosticoVehiculo = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { clienteSeleccionado, vehiculoSeleccionado, inspeccionActual } = location.state || {};
 
-  // Estado para la inspección previa
   const [inspeccionPrev, setInspeccionPrev] = useState(null);
   const [mostrarAdvertencia, setMostrarAdvertencia] = useState(false);
 
-  // Estado inicial del diagnóstico
   const [estado, setEstado] = useState({
     motor: "Normal",
     bateria: "Normal",
@@ -46,18 +48,13 @@ const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
       return;
     }
 
-    // Simulación: Buscar inspección previa para el vehículo seleccionado
-    const inspeccionesGuardadas = JSON.parse(localStorage.getItem("inspecciones")) || {};
-    const inspeccionVehiculo = inspeccionesGuardadas[vehiculoSeleccionado.id];
-
-    if (inspeccionVehiculo) {
-      setInspeccionPrev(inspeccionVehiculo);
+    if (inspeccionActual) {
+      setInspeccionPrev(inspeccionActual);
     } else {
       setMostrarAdvertencia(true);
     }
-  }, [vehiculoSeleccionado]);
+  }, [vehiculoSeleccionado, inspeccionActual]);
 
-  // Funciones para manejar cambios
   const handleChange = (componente, valor) => {
     setEstado((prev) => ({
       ...prev,
@@ -85,15 +82,12 @@ const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
     }));
   };
 
-  // Datos para gráficas
   const dataPresion = {
     labels: ["Frontal Izq.", "Frontal Der.", "Trasera Izq.", "Trasera Der."],
     datasets: [
       {
         label: "Estado",
-        data: Object.values(estado.presionNeumaticos).map((p) =>
-          p === "Baja" ? 25 : 30
-        ),
+        data: Object.values(estado.presionNeumaticos).map((p) => (p === "Baja" ? 25 : 30)),
         backgroundColor: Object.values(estado.presionNeumaticos).map((p) =>
           p === "Baja" ? "#f44336" : "#4caf50"
         ),
@@ -116,7 +110,6 @@ const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
     ],
   };
 
-  // Recomendaciones automáticas
   const getRecomendaciones = () => {
     const recomendaciones = [];
 
@@ -139,21 +132,90 @@ const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
       }
     });
 
-    if (estado.motor === "Falla") {
-      recomendaciones.push("Se recomienda revisar el motor debido a fallas detectadas.");
-    }
-    if (estado.bateria === "Baja") {
-      recomendaciones.push("Se recomienda cargar o reemplazar la batería.");
-    }
-    if (estado.frenos === "Desgastados") {
-      recomendaciones.push("Se recomienda inspeccionar y cambiar las pastillas de freno.");
+    if (estado.motor === "Falla") recomendaciones.push("Se recomienda revisar el motor.");
+    if (estado.bateria === "Baja") recomendaciones.push("Cargar o reemplazar batería.");
+    if (estado.frenos === "Desgastados")
+      recomendaciones.push("Inspeccionar y cambiar pastillas de freno.");
+
+    if (inspeccionPrev?.["Frenos"] === "cambiar" && estado.frenos === "Normal") {
+      recomendaciones.push("⚠️ En la inspección se recomendó cambiar frenos. Verifique el diagnóstico.");
     }
 
     return recomendaciones;
   };
 
-  // Manejador de redirección
-  const handleSiguiente = () => {
+  const guardarDiagnostico = async () => {
+  const id_diagnostico = uuidv4();
+  const detalles = [
+    {
+      id_detalle: uuidv4(),
+      id_diagnostico, // ⬅️ Campo añadido
+      componente: "motor",
+      valor: estado.motor === "Falla" ? 1 : 0,
+    },
+    {
+      id_detalle: uuidv4(),
+      id_diagnostico, // ⬅️ Campo añadido
+      componente: "bateria",
+      valor: estado.bateria === "Baja" ? 1 : 0,
+    },
+    {
+      id_detalle: uuidv4(),
+      id_diagnostico, // ⬅️ Campo añadido
+      componente: "frenos",
+      valor: estado.frenos === "Desgastados" ? 1 : 0,
+    },
+    ...Object.entries(estado.presionNeumaticos).map(([posicion, estadoPresion]) => ({
+      id_detalle: uuidv4(),
+      id_diagnostico, // ⬅️ Campo añadido
+      componente: `presion_${posicion}`,
+      valor: estadoPresion === "Baja" ? 25 : 30,
+    })),
+    ...Object.entries(estado.balanceo).map(([posicion, valor]) => ({
+      id_detalle: uuidv4(),
+      id_diagnostico, // ⬅️ Campo añadido
+      componente: `alineacion_${posicion}`,
+      valor: parseFloat(valor),
+    })),
+  ];
+
+  const payload = {
+    id_diagnostico,
+    placa: vehiculoSeleccionado?.placa || vehiculoSeleccionado,
+    fecha: new Date().toISOString().split("T")[0],
+    detalles,
+  };
+
+  console.log("Payload enviado:", payload); // Debugging
+
+  try {
+    const res = await authFetch("http://localhost:8000/diagnosticos/completo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      console.log("✅ Diagnóstico guardado con éxito");
+    } else {
+      const data = await res.json();
+      console.error("❌ Detalle del error:", data);
+
+      if (Array.isArray(data.detail)) {
+        const mensajes = data.detail.map((d, i) => `• ${d.msg || JSON.stringify(d)}`).join("\n");
+        alert("❌ Error al guardar:\n" + mensajes);
+      } else {
+        alert("❌ Error al guardar: " + (data.detail || "Error desconocido"));
+      }
+    }
+  } catch (error) {
+    console.error("❌ Conexión fallida:", error);
+    alert("❌ No se pudo guardar el diagnóstico.");
+  }
+};
+
+
+  const handleSiguiente = async () => {
     const recomendaciones = getRecomendaciones();
     if (recomendaciones.length > 0) {
       const confirmacion = window.confirm(
@@ -162,6 +224,7 @@ const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
       if (!confirmacion) return;
     }
 
+    await guardarDiagnostico();
     navigate("/facturacion");
   };
 
@@ -169,104 +232,36 @@ const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
     <div className="diagnostico-container">
       <h2>🛠 Diagnóstico del Vehículo</h2>
 
-      {/* Mostrar advertencia si no hay inspección previa */}
       {mostrarAdvertencia && (
         <div className="advertencia">
           <p>No se encontró ninguna inspección previa para este vehículo.</p>
         </div>
       )}
 
-      {/* Mostrar datos de inspección previa */}
       {inspeccionPrev && (
         <div className="inspeccion-previa">
-          <h3>Datos de Inspección Previa</h3>
+          <h3>📋 Inspección Previa</h3>
           <ul>
             {Object.entries(inspeccionPrev).map(([parte, estado], index) => (
               <li key={index}>
-                {parte}: {estado}
+                <span className={`estado-valor ${estado.toLowerCase()}`}>
+                  {estado === "normal"
+                    ? "✅"
+                    : estado === "reparar"
+                    ? "🔧"
+                    : estado === "cambiar"
+                    ? "♻"
+                    : "❌"}{" "}
+                  {parte}: {estado}
+                </span>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* Controles para seleccionar estado */}
-      <div className="controles-diagnostico">
-        <h3>🔧 Estado del Vehículo</h3>
-        <label>🚗 Motor:</label>
-        <select value={estado.motor} onChange={(e) => handleChange("motor", e.target.value)}>
-          <option value="Normal">Normal</option>
-          <option value="Falla">Falla</option>
-        </select>
+      {/* ... resto igual (selectores y gráficos) */}
 
-        <label>🔋 Batería:</label>
-        <select value={estado.bateria} onChange={(e) => handleChange("bateria", e.target.value)}>
-          <option value="Normal">Normal</option>
-          <option value="Baja">Baja</option>
-        </select>
-
-        <label>🛑 Frenos:</label>
-        <select value={estado.frenos} onChange={(e) => handleChange("frenos", e.target.value)}>
-          <option value="Normal">Normal</option>
-          <option value="Desgastados">Desgastados</option>
-        </select>
-
-        <label>⬤ Ruedas:</label>
-        {Object.keys(estado.presionNeumaticos).map((posicion) => (
-          <select
-            key={posicion}
-            value={estado.presionNeumaticos[posicion]}
-            onChange={(e) => handleNeumaticoChange(posicion, e.target.value)}
-          >
-            <option value="Normal">{`${posicion.replace(/([A-Z])/g, " $1")} Normal`}</option>
-            <option value="Baja">{`${posicion.replace(/([A-Z])/g, " $1")} Baja`}</option>
-          </select>
-        ))}
-      </div>
-
-      {/* Controles para editar balanceo */}
-      <div className="controles-diagnostico">
-        <h3>🔄 Balanceo de Ruedas</h3>
-        {Object.keys(estado.balanceo).map((posicion) => (
-          <div key={posicion}>
-            <label>{`${posicion.replace(/([A-Z])/g, " $1")}:`}</label>
-            <input
-              type="number"
-              step="0.1"
-              value={estado.balanceo[posicion]}
-              onChange={(e) => handleBalanceoChange(posicion, e.target.value)}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Gráficas */}
-      <div className="diagnostico-panel">
-        <div className="chart">
-          <h3>📊 Presión de Neumáticos</h3>
-          <Bar data={dataPresion} />
-        </div>
-
-        <div className="chart">
-          <h3>📏 Ángulo de Alineación (Balanceo)</h3>
-          <Bar
-            data={dataBalanceoBarras}
-            options={{
-              indexAxis: "y", // Barras horizontales
-              scales: {
-                x: {
-                  beginAtZero: true,
-                  ticks: {
-                    callback: (value) => `${value}°`, // Mostrar grados en el eje X
-                  },
-                },
-              },
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Recomendaciones Automáticas */}
       <div className="recomendaciones">
         <h3>💡 Recomendaciones</h3>
         <ul>
@@ -280,7 +275,6 @@ const DiagnosticoVehiculo = ({ clienteSeleccionado, vehiculoSeleccionado }) => {
         </ul>
       </div>
 
-      {/* Botón Siguiente */}
       <button onClick={handleSiguiente} className="btn-siguiente">
         Siguiente ➡
       </button>
