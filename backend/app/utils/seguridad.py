@@ -17,7 +17,12 @@ def verificar(pwd: str, hashed: str) -> bool:
     return pwd_context.verify(pwd, hashed)
 
 def crear_token(data: dict, tiempo: int = ACCESS_TOKEN_EXPIRE_MINUTES):
+    """
+    data debe traer al menos {"sub": <id_usuario>}
+    """
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=tiempo)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire})           # ✅ NO vuelvas a tocar "sub"
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+

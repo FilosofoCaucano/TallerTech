@@ -49,3 +49,8 @@ def read_root():
 
 # Crear todas las tablas (solo para desarrollo, no en producción)
 Base.metadata.create_all(bind=engine)
+
+@app.get("/tablas-debug")
+def debug():
+    return {"tablas": list(Base.metadata.tables.keys())}
+

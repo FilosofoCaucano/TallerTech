@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 class VehiculoBase(BaseModel):
@@ -6,6 +7,10 @@ class VehiculoBase(BaseModel):
     modelo: str
     cliente_id: str
 
-class VehiculoOut(VehiculoBase):
+class VehiculoOut(BaseModel):
+    placa: str
+    marca: str
+    modelo: str
+
     class Config:
-        orm_mode = True
+        from_attributes = True

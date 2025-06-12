@@ -10,3 +10,5 @@ class Cliente(Base):
     email = Column(String, nullable=True)
     telefono = Column(String, nullable=True)
     direccion = Column(String, nullable=True)
+    estado = Column(String, nullable=False, default="Activo")  # NUEVO CAMPO
+

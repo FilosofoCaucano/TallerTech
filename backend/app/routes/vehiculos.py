@@ -3,6 +3,10 @@ from sqlalchemy.orm import Session
 from app.models.database import SessionLocal
 from app.models.vehiculo import Vehiculo
 from app.schemas.vehiculo_schema import VehiculoBase, VehiculoOut
+from app.models.cliente import Cliente  # asegúrate de importar Cliente
+from app.schemas.vehiculo_schema import VehiculoOut
+
+
 
 router = APIRouter()
 
@@ -15,17 +19,11 @@ def get_db():
         db.close()
 
 # 🔹 Obtener todos los vehículos
-@router.get("/vehiculos", response_model=list[VehiculoOut])
-def listar_vehiculos(db: Session = Depends(get_db)):
-    return db.query(Vehiculo).all()
+#@router.get("/vehiculos", response_model=list[VehiculoOut])
+#def listar_vehiculos(db: Session = Depends(get_db)):
+#    return db.query(Vehiculo).all()
 
-# 🔹 Obtener un vehículo por placa
-@router.get("/vehiculos/{placa}", response_model=VehiculoOut)
-def obtener_vehiculo(placa: str, db: Session = Depends(get_db)):
-    vehiculo = db.query(Vehiculo).filter(Vehiculo.placa == placa).first()
-    if not vehiculo:
-        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
-    return vehiculo
+
 
 # 🔹 Crear un vehículo
 @router.post("/vehiculos", response_model=VehiculoOut)
@@ -59,3 +57,34 @@ def eliminar_vehiculo(placa: str, db: Session = Depends(get_db)):
     db.delete(vehiculo)
     db.commit()
     return {"message": "Vehículo eliminado"}
+
+@router.get("/vehiculos")
+def listar_vehiculos(db: Session = Depends(get_db)):
+    vehiculos = db.query(Vehiculo).all()
+    resultado = []
+    for v in vehiculos:
+        cliente = db.query(Cliente).filter(Cliente.id == v.cliente_id).first()
+        resultado.append({
+            "placa": v.placa,
+            "marca": v.marca,
+            "modelo": v.modelo,
+            "cliente_id": v.cliente_id,
+            "cliente_nombre": cliente.nombre if cliente else "No registrado"
+        })
+    return resultado
+
+@router.get("/vehiculos/por-cliente/{cliente_id}", response_model=list[VehiculoOut])
+def obtener_vehiculos_por_cliente(cliente_id: str, db: Session = Depends(get_db)):
+    vehiculos = db.query(Vehiculo).filter(Vehiculo.cliente_id == cliente_id).all()
+    resultado = []
+    for v in vehiculos:
+        cliente = db.query(Cliente).filter(Cliente.id == v.cliente_id).first()
+        resultado.append({
+            "placa": v.placa,
+            "marca": v.marca,
+            "modelo": v.modelo,
+            "cliente_id": v.cliente_id,
+            "cliente_nombre": cliente.nombre if cliente else "No registrado"
+        })
+    return resultado
+

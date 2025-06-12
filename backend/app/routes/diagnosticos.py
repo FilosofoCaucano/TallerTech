@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from app.models.database import SessionLocal
 from app.models.diagnostico import Diagnostico
 from app.schemas.diagnostico_schema import DiagnosticoBase, DiagnosticoOut
+from app.models.detalle_diagnostico import DetalleDiagnostico
+from app.schemas.diagnostico_schema import DiagnosticoCompleto
+from app.schemas.detalle_diagnostico_schema import DetalleDiagnosticoBase
 
 router = APIRouter()
 
@@ -53,3 +56,32 @@ def eliminar_diagnostico(id_diagnostico: str, db: Session = Depends(get_db)):
     db.delete(diagnostico)
     db.commit()
     return {"message": "Diagnóstico eliminado"}
+
+
+@router.post("/diagnosticos/completo")
+def crear_diagnostico_completo(diagnostico: DiagnosticoCompleto, db: Session = Depends(get_db)):
+    # Verificar si ya existe
+    existe = db.query(Diagnostico).filter(Diagnostico.id_diagnostico == diagnostico.id_diagnostico).first()
+    if existe:
+        raise HTTPException(status_code=400, detail="El diagnóstico ya existe")
+
+    # Crear diagnóstico principal
+    diag = Diagnostico(
+        id_diagnostico=diagnostico.id_diagnostico,
+        placa=diagnostico.placa,
+        fecha=diagnostico.fecha,
+    )
+    db.add(diag)
+
+    # Crear detalles del diagnóstico
+    for d in diagnostico.detalles:
+        detalle = DetalleDiagnostico(
+            id_detalle=d.id_detalle,
+            id_diagnostico=diagnostico.id_diagnostico,
+            componente=d.componente,
+            valor=d.valor,
+        )
+        db.add(detalle)
+
+    db.commit()
+    return {"message": "Diagnóstico completo guardado correctamente"}

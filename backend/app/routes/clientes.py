@@ -31,16 +31,16 @@ def obtener_cliente(id: str, db: Session = Depends(get_db)):
     return cliente
 
 # 🔹 Crear cliente
-@router.post("/clientes", response_model=ClienteOut, dependencies=[Depends(obtener_usuario_actual)])
-def crear_cliente(cliente: ClienteBase, db: Session = Depends(get_db)):
-    existe = db.query(Cliente).filter(Cliente.id == cliente.id).first()
-    if existe:
-        raise HTTPException(status_code=400, detail="Cliente ya existe")
-    nuevo = Cliente(**cliente.dict())
-    db.add(nuevo)
+@router.post("/clientes/")
+def crear_cliente(cliente: ClienteBase, db: Session = Depends(get_db), usuario_actual=Depends(obtener_usuario_actual)):
+    # Puedes acceder al ID del usuario con: usuario_actual
+    print(f"Cliente creado por: {usuario_actual}")
+    
+    nuevo_cliente = Cliente(**cliente.dict())  # asumiendo que tienes el modelo Cliente
+    db.add(nuevo_cliente)
     db.commit()
-    db.refresh(nuevo)
-    return nuevo
+    db.refresh(nuevo_cliente)
+    return nuevo_cliente
 
 # 🔹 Actualizar cliente
 @router.put("/clientes/{id}", response_model=ClienteOut, dependencies=[Depends(obtener_usuario_actual)])
